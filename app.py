@@ -435,7 +435,7 @@ if st.session_state.calculated:
         # Calculate final values
         valore_ptf_futuro = results['valore_portafoglio_futuro']
         valore_turbo_futuro = results['valore_turbo_futuro']  # Fixed: was valore_turbo_netto
-        valore_totale = results['valore_totale']
+        valore_totale = results['valore_totale_futuro']  # Fixed: was valore_totale
         performance_totale = results['performance_totale'] * 100
         
         # Determine colors
