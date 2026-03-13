@@ -103,20 +103,25 @@ with st.sidebar.expander("📊 Dividend Yield", expanded=False):
         help="Rendimento da dividendi dell'indice (annualizzato)"
     )
 
-with st.sidebar.expander("🎲 Volatilità e Greeks", expanded=False):
-    enable_greeks = st.checkbox("Abilita Calcolo Greeks", value=False)
+with st.sidebar.expander("🎲 Volatilità e Greeks", expanded=True):
+    st.markdown("**📊 Abilita Greeks per analisi avanzate**")
+    st.info("💡 Le Greeks forniscono metriche di sensibilità del Turbo (Delta, Gamma, Vega, Theta, Rho)")
+    
+    enable_greeks = st.checkbox("Abilita Calcolo Greeks", value=False, key="enable_greeks")
     
     if enable_greeks:
         volatility = st.number_input(
-            "Volatilità Implicita (%)",
+            "Volatilità Implicita Annualizzata (%)",
             min_value=5.0,
             max_value=100.0,
             value=20.0,
             step=1.0,
-            help="Volatilità annualizzata dell'indice"
+            help="Volatilità implicita annualizzata dell'indice sottostante. Esempio: 20% per indici azionari, 15% per indici stabili, 30% per indici volatili"
         ) / 100
+        
+        st.caption(f"📈 Volatilità impostata: {volatility*100:.1f}% annua")
     else:
-        volatility = 0.20  # Default
+        volatility = 0.20  # Default (non usato se Greeks disabilitati)
 
 with st.sidebar.expander("🎯 Monte Carlo Simulation", expanded=False):
     enable_monte_carlo = st.checkbox("Abilita Simulazione Monte Carlo", value=False)
@@ -287,123 +292,242 @@ if st.session_state.calculated:
     
     # ============================================================================
     # MAIN RESULTS
+# FINO A RIGA ~410 (prima del "# Detailed breakdown")
+
+    # ============================================================================
+    # RESULTS SECTION - Excel-like Layout  
     # ============================================================================
     
+    st.markdown("---")
     st.header("📊 Risultati della Copertura")
     
-    # Key metrics in columns
-    col1, col2, col3, col4 = st.columns(4)
+    # Create 3-column layout matching Excel structure
+    excel_col1, excel_col2, excel_col3 = st.columns([1, 1, 1.3])
     
-    with col1:
-        st.metric(
-            "Fair Value Turbo",
-            f"€{results['fair_value']:.2f}",
-            f"{results['premio_pct']:.2f}% premio"
-        )
+    # ========================================
+    # COLONNA 1: CARATTERISTICHE TURBO SHORT
+    # ========================================
+    with excel_col1:
+        st.markdown("""
+        <div style='background-color: #2c5282; padding: 12px; border-radius: 5px; text-align: center; margin-bottom: 15px;'>
+        <h4 style='margin: 0; color: white;'>CARATTERISTICHE TURBO SHORT</h4>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        # Turbo characteristics table
+        st.markdown(f"""
+        <table style='width: 100%; border-collapse: collapse;'>
+        <tr style='background-color: #F8F9FA;'>
+            <td style='padding: 8px; border: 1px solid #dee2e6;'><strong>Prezzo iniziale</strong></td>
+            <td style='padding: 8px; border: 1px solid #dee2e6; text-align: right;'>{prezzo_iniziale:.2f} €</td>
+        </tr>
+        <tr>
+            <td style='padding: 8px; border: 1px solid #dee2e6;'><strong>Fair Value</strong></td>
+            <td style='padding: 8px; border: 1px solid #dee2e6; text-align: right; color: #2c5282; font-weight: bold;'>{results["fair_value"]:.4f} €</td>
+        </tr>
+        <tr style='background-color: #F8F9FA;'>
+            <td style='padding: 8px; border: 1px solid #dee2e6;'><strong>Premio</strong></td>
+            <td style='padding: 8px; border: 1px solid #dee2e6; text-align: right;'>{results["premio"]:.4f} €</td>
+        </tr>
+        <tr>
+            <td style='padding: 8px; border: 1px solid #dee2e6;'><strong>Strike</strong></td>
+            <td style='padding: 8px; border: 1px solid #dee2e6; text-align: right;'>{strike:.2f}</td>
+        </tr>
+        <tr style='background-color: #F8F9FA;'>
+            <td style='padding: 8px; border: 1px solid #dee2e6;'><strong>Tasso di cambio</strong></td>
+            <td style='padding: 8px; border: 1px solid #dee2e6; text-align: right;'>{cambio:.2f}</td>
+        </tr>
+        <tr>
+            <td style='padding: 8px; border: 1px solid #dee2e6;'><strong>Multiplo</strong></td>
+            <td style='padding: 8px; border: 1px solid #dee2e6; text-align: right;'>{multiplo:.2f}</td>
+        </tr>
+        <tr style='height: 20px;'><td colspan='2'></td></tr>
+        <tr style='background-color: #F8F9FA;'>
+            <td style='padding: 8px; border: 1px solid #dee2e6;'><strong>Euribor 12M</strong></td>
+            <td style='padding: 8px; border: 1px solid #dee2e6; text-align: right;'>{euribor:.5f}</td>
+        </tr>
+        </table>
+        """, unsafe_allow_html=True)
     
-    with col2:
-        st.metric(
-            "Leva Finanziaria",
-            f"{results['leverage']:.2f}x",
-            "Esposizione effettiva"
-        )
+    # ========================================
+    # COLONNA 2: INDICE DA COPRIRE
+    # ========================================
+    with excel_col2:
+        st.markdown("""
+        <div style='background-color: #2c5282; padding: 12px; border-radius: 5px; text-align: center; margin-bottom: 15px;'>
+        <h4 style='margin: 0; color: white;'>INDICE DA COPRIRE</h4>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        st.markdown(f"""
+        <table style='width: 100%; border-collapse: collapse;'>
+        <tr style='background-color: #F8F9FA;'>
+            <td style='padding: 8px; border: 1px solid #dee2e6;'><strong>Valore Iniziale</strong></td>
+            <td style='padding: 8px; border: 1px solid #dee2e6; text-align: right;'>{valore_iniziale_indice:.2f}</td>
+        </tr>
+        <tr>
+            <td style='padding: 8px; border: 1px solid #dee2e6;'><strong>Valore Ipotetico</strong></td>
+            <td style='padding: 8px; border: 1px solid #dee2e6; text-align: right; color: #c62828; font-weight: bold;'>{valore_ipotetico_indice:.0f}</td>
+        </tr>
+        <tr style='background-color: #F8F9FA;'>
+            <td style='padding: 8px; border: 1px solid #dee2e6;'><strong>Giorni</strong></td>
+            <td style='padding: 8px; border: 1px solid #dee2e6; text-align: right;'>{giorni:.0f}</td>
+        </tr>
+        <tr style='height: 20px;'><td colspan='2'></td></tr>
+        <tr>
+            <td style='padding: 8px; border: 1px solid #dee2e6;'><strong>Prezzo Turbo Short</strong></td>
+            <td style='padding: 8px; border: 1px solid #dee2e6; text-align: right; color: #2c5282; font-weight: bold;'>{results["prezzo_turbo_futuro"]:.4f} €</td>
+        </tr>
+        <tr style='background-color: #F8F9FA;'>
+            <td style='padding: 8px; border: 1px solid #dee2e6;'><strong>Barriera Turbo Short</strong></td>
+            <td style='padding: 8px; border: 1px solid #dee2e6; text-align: right;'>{results["barrier_future"]:.2f}</td>
+        </tr>
+        <tr>
+            <td style='padding: 8px; border: 1px solid #dee2e6;'><strong>Leva Turbo Short</strong></td>
+            <td style='padding: 8px; border: 1px solid #dee2e6; text-align: right;'>{results["leverage"]:.2f}</td>
+        </tr>
+        </table>
+        """, unsafe_allow_html=True)
     
-    with col3:
-        st.metric(
-            "N° Certificati",
-            f"{results['n_turbo']:.0f}",
-            f"€{results['capitale_turbo']:,.0f}"
-        )
+    # ========================================
+    # COLONNA 3: PORTAFOGLIO DA COPRIRE
+    # ========================================
+    with excel_col3:
+        st.markdown("""
+        <div style='background-color: #2c5282; padding: 12px; border-radius: 5px; text-align: center; margin-bottom: 15px;'>
+        <h4 style='margin: 0; color: white;'>PORTAFOGLIO DA COPRIRE</h4>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        # Valore portafoglio in alto a destra
+        st.markdown(f"""
+        <div style='text-align: right; font-size: 24px; font-weight: bold; color: #2c5282; margin-bottom: 20px; padding: 10px; background-color: #F8F9FA; border-radius: 5px;'>
+        {valore_portafoglio:,.2f} €
+        </div>
+        """, unsafe_allow_html=True)
+        
+        # Copertura table
+        st.markdown(f"""
+        <table style='width: 100%; border-collapse: collapse; margin-top: 10px;'>
+        <tr style='background-color: #F8F9FA;'>
+            <td style='padding: 8px; border: 1px solid #dee2e6;'><strong>N. Turbo Short</strong></td>
+            <td style='padding: 8px; border: 1px solid #dee2e6; text-align: right;'>{results["n_turbo"]:.2f}</td>
+            <td rowspan='2' style='padding: 8px; border: 1px solid #dee2e6; text-align: center; vertical-align: middle; background-color: #E3F2FD; font-weight: bold;'>TOTALE CON<br/>COPERTURA</td>
+        </tr>
+        <tr>
+            <td style='padding: 8px; border: 1px solid #dee2e6;'><strong>Capitale</strong></td>
+            <td style='padding: 8px; border: 1px solid #dee2e6; text-align: right;'>{results["capitale_turbo"]:,.2f} €</td>
+        </tr>
+        <tr style='background-color: #FFF3E0;'>
+            <td colspan='2' style='padding: 8px; border: 1px solid #dee2e6; text-align: right; font-weight: bold;'></td>
+            <td style='padding: 8px; border: 1px solid #dee2e6; text-align: right; color: #E65100; font-weight: bold; font-size: 16px;'>{results["capitale_totale"]:,.2f} €</td>
+        </tr>
+        </table>
+        """, unsafe_allow_html=True)
+        
+        # Valore Portafoglio Simulato
+        st.markdown("""
+        <div style='background-color: #E3F2FD; padding: 10px; border-radius: 5px; text-align: center; margin-top: 20px; margin-bottom: 10px;'>
+        <strong style='color: #0D47A1;'>VALORE PORTAFOGLIO SIMULATO</strong>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        # Calculate final values
+        valore_ptf_futuro = results['valore_portafoglio_futuro']
+        valore_turbo_futuro = results['valore_turbo_netto']
+        valore_totale = results['valore_totale']
+        performance_totale = results['performance_totale'] * 100
+        
+        # Determine colors
+        perf_bg = '#E8F5E9' if performance_totale >= 0 else '#FFEBEE'
+        perf_color = '#2E7D32' if performance_totale >= 0 else '#C62828'
+        perf_sign = '+' if performance_totale >= 0 else ''
+        
+        st.markdown(f"""
+        <table style='width: 100%; border-collapse: collapse;'>
+        <tr style='background-color: #F8F9FA;'>
+            <td style='padding: 8px; border: 1px solid #dee2e6;'></td>
+            <td style='padding: 8px; border: 1px solid #dee2e6; text-align: right; font-weight: bold;'>VALORE COPERTURA</td>
+        </tr>
+        <tr>
+            <td style='padding: 8px; border: 1px solid #dee2e6;'><strong>Portafoglio</strong></td>
+            <td style='padding: 8px; border: 1px solid #dee2e6; text-align: right;'>{valore_ptf_futuro:,.2f} €</td>
+        </tr>
+        <tr style='background-color: #F8F9FA;'>
+            <td style='padding: 8px; border: 1px solid #dee2e6;'><strong>Turbo (netto)</strong></td>
+            <td style='padding: 8px; border: 1px solid #dee2e6; text-align: right; color: #2E7D32; font-weight: bold;'>{valore_turbo_futuro:,.2f} €</td>
+        </tr>
+        <tr style='height: 10px;'><td colspan='2'></td></tr>
+        <tr style='background-color: #E3F2FD;'>
+            <td style='padding: 8px; border: 1px solid #dee2e6;'><strong>TOTALE</strong></td>
+            <td style='padding: 8px; border: 1px solid #dee2e6; text-align: right; font-weight: bold; font-size: 16px;'>{valore_totale:,.2f} €</td>
+        </tr>
+        </table>
+        """, unsafe_allow_html=True)
+        
+        # Performance box in grande
+        st.markdown(f"""
+        <div style='background-color: {perf_bg}; 
+                    padding: 20px; 
+                    border-radius: 5px; 
+                    text-align: center; 
+                    border: 3px solid {perf_color};
+                    margin-top: 15px;'>
+        <div style='font-size: 42px; font-weight: bold; color: {perf_color}; line-height: 1;'>
+        {perf_sign}{performance_totale:.2f}%
+        </div>
+        <div style='color: #666; font-size: 12px; margin-top: 8px; font-weight: 600;'>
+        PERFORMANCE COPERTA
+        </div>
+        </div>
+        """, unsafe_allow_html=True)
     
-    with col4:
-        st.metric(
-            "Capitale Investito",
-            f"{results['capitale_investito_pct']:.2f}%",
-            "del portafoglio"
-        )
+    # ============================================================================
+    # METRICHE CHIAVE - Row sotto le 3 colonne principali
+    # ============================================================================
     
     st.markdown("###")
     
-    # Performance metrics
-    col1, col2, col3 = st.columns(3)
+    kpi_col1, kpi_col2, kpi_col3, kpi_col4 = st.columns(4)
     
-    with col1:
-        perf_color = "normal" if results['performance_portafoglio'] >= 0 else "inverse"
+    with kpi_col1:
+        hedge_ratio_pct = results['hedge_ratio'] * 100
         st.metric(
-            "Performance Portafoglio",
-            f"{results['performance_portafoglio']*100:.2f}%",
-            f"€{results['pl_portafoglio']:,.0f}",
+            "🎯 Hedge Ratio",
+            f"{hedge_ratio_pct:.1f}%",
+            "Efficacia copertura"
+        )
+    
+    with kpi_col2:
+        barrier_dist = results['distanza_barriera_pct']
+        barrier_value = results['barrier_future']
+        st.metric(
+            "🛡️ Distanza Barriera",
+            f"{barrier_dist:+.2f}%",
+            f"K.O. a {barrier_value:,.0f}"
+        )
+    
+    with kpi_col3:
+        var_indice = results['variazione_indice_pct']
+        var_ptf = results['variazione_portafoglio_pct']
+        perf_color = "normal" if var_indice >= 0 else "inverse"
+        st.metric(
+            "📉 Variazione Indice",
+            f"{var_indice:.2f}%",
+            f"Ptf: {var_ptf:.2f}% (β={beta_portafoglio})",
             delta_color=perf_color
         )
     
-    with col2:
+    with kpi_col4:
+        pl_netto = results['pl_netto']
+        pl_color = "normal" if pl_netto >= 0 else "inverse"
         st.metric(
-            "Performance Turbo",
-            f"{results['performance_turbo']*100:.2f}%",
-            f"€{results['pl_turbo']:,.0f}"
+            "💰 P&L Netto",
+            f"€{pl_netto:,.0f}",
+            f"{performance_totale:+.2f}%",
+            delta_color=pl_color
         )
-    
-    with col3:
-        perf_tot_color = "normal" if results['performance_totale'] >= 0 else "inverse"
-        st.metric(
-            "Performance Coperta",
-            f"{results['performance_totale']*100:.2f}%",
-            f"€{results['pl_netto']:,.0f}",
-            delta_color=perf_tot_color
-        )
-    
-    # Hedge effectiveness
-    st.markdown("###")
-    
-    col1, col2, col3 = st.columns(3)
-    
-    with col1:
-        hedge_ratio_pct = results['hedge_ratio'] * 100
-        if hedge_ratio_pct >= 95:
-            hedge_class = "success-box"
-            hedge_icon = "✅"
-        elif hedge_ratio_pct >= 85:
-            hedge_class = "info-box"
-            hedge_icon = "✓"
-        else:
-            hedge_class = "warning-box"
-            hedge_icon = "⚠️"
-        
-        st.markdown(f"""
-        <div class="{hedge_class}">
-        <strong>{hedge_icon} Hedge Ratio: {hedge_ratio_pct:.1f}%</strong><br>
-        Efficacia della copertura nel compensare le perdite
-        </div>
-        """, unsafe_allow_html=True)
-    
-    with col2:
-        barrier_dist = results['distanza_barriera_pct']
-        if barrier_dist >= 10:
-            barrier_class = "success-box"
-            barrier_icon = "✅"
-        elif barrier_dist >= 5:
-            barrier_class = "warning-box"
-            barrier_icon = "⚠️"
-        else:
-            barrier_class = "danger-box"
-            barrier_icon = "❌"
-        
-        st.markdown(f"""
-        <div class="{barrier_class}">
-        <strong>{barrier_icon} Distanza Barriera: {barrier_dist:+.2f}%</strong><br>
-        Barriera K.O. a {results['barrier_future']:,.2f} punti
-        </div>
-        """, unsafe_allow_html=True)
-    
-    with col3:
-        total_cost = results['costi_acquisto'] + results['costi_vendita'] + results['tasse_pagate']
-        st.markdown(f"""
-        <div class="info-box">
-        <strong>💰 Costi Totali: €{total_cost:,.2f}</strong><br>
-        Acquisto + Vendita + Tasse
-        </div>
-        """, unsafe_allow_html=True)
-    
+
     # Detailed breakdown
     with st.expander("📋 Dettaglio Completo dei Calcoli", expanded=False):
         detail_col1, detail_col2 = st.columns(2)
@@ -598,7 +722,14 @@ if st.session_state.calculated:
     
     if enable_greeks:
         st.markdown("---")
-        st.header("🎲 Analisi Greeks")
+        st.header("🎲 Analisi Greeks - Metriche di Sensibilità")
+        
+        st.markdown("""
+        <div class="info-box">
+        Le <strong>Greeks</strong> misurano come varia il prezzo del Turbo al variare dei fattori di mercato.
+        Valori calcolati con volatilità implicita di <strong>{:.1f}%</strong>.
+        </div>
+        """.format(volatility * 100), unsafe_allow_html=True)
         
         greeks_params = {
             'spot': valore_iniziale_indice,
@@ -618,19 +749,87 @@ if st.session_state.calculated:
         greek_col1, greek_col2, greek_col3 = st.columns(3)
         
         with greek_col1:
-            st.metric("Delta", f"{greeks['delta']:.4f}", "Sensibilità al prezzo")
-            st.metric("Gamma", f"{greeks['gamma']:.6f}", "Convessità")
+            st.metric(
+                "Delta", 
+                f"{greeks['delta']:.4f}", 
+                help="Variazione prezzo Turbo per 1 punto di variazione dell'indice"
+            )
+            st.caption("📊 Sensibilità al prezzo sottostante")
+            
+            st.metric(
+                "Gamma", 
+                f"{greeks['gamma']:.6f}",
+                help="Variazione del Delta per 1 punto di variazione dell'indice"
+            )
+            st.caption("📈 Convessità (curvatura del Delta)")
         
         with greek_col2:
-            st.metric("Vega", f"{greeks['vega']:.4f}", "Sensibilità a vol")
-            st.metric("Theta", f"{greeks['theta']:.4f}", "Time decay/giorno")
+            st.metric(
+                "Vega", 
+                f"{greeks['vega']:.4f}",
+                help="Variazione prezzo Turbo per +1% di volatilità"
+            )
+            st.caption("🌊 Sensibilità alla volatilità")
+            
+            st.metric(
+                "Theta", 
+                f"{greeks['theta']:.4f} €/giorno",
+                help="Perdita di valore per il passaggio di 1 giorno"
+            )
+            st.caption("⏱️ Time decay giornaliero")
         
         with greek_col3:
-            st.metric("Rho", f"{greeks['rho']:.4f}", "Sensibilità a tasso")
-            st.metric("Prob. K.O.", f"{greeks['knockout_prob']*100:.2f}%", "Probabilità knock-out")
+            st.metric(
+                "Rho", 
+                f"{greeks['rho']:.4f}",
+                help="Variazione prezzo Turbo per +1% nei tassi di interesse"
+            )
+            st.caption("💰 Sensibilità ai tassi")
+            
+            st.metric(
+                "Prob. K.O.", 
+                f"{greeks['knockout_prob']*100:.2f}%",
+                help="Probabilità che l'indice tocchi la barriera entro scadenza"
+            )
+            st.caption("⚠️ Rischio di knock-out")
         
+        # Greeks Chart
         fig_greeks = create_greeks_chart(greeks)
         st.plotly_chart(fig_greeks, use_container_width=True)
+        
+        # Interpretazione Greeks
+        with st.expander("📖 Come Interpretare le Greeks"):
+            st.markdown("""
+            ### Delta (Δ)
+            - **Valore tipico:** -0.8 a -1.0 per Turbo Short
+            - **Interpretazione:** Se Delta = -0.95, un calo di 1 punto dell'indice fa salire il Turbo di €0.95
+            - **Uso:** Misura l'efficacia della copertura (più vicino a -1, migliore la copertura)
+            
+            ### Gamma (Γ)
+            - **Valore tipico:** 0.001 a 0.01
+            - **Interpretazione:** Quanto varia il Delta al variare del prezzo
+            - **Uso:** Gamma alto = Delta cambia rapidamente (necessario ribilanciare spesso)
+            
+            ### Vega (ν)
+            - **Valore tipico:** 0.1 a 1.0
+            - **Interpretazione:** Se Vega = 0.5, un aumento della volatilità dall'20% al 21% fa salire il Turbo di €0.50
+            - **Uso:** Indica esposizione alla volatilità implicita
+            
+            ### Theta (Θ)
+            - **Valore tipico:** -0.01 a -0.10 €/giorno
+            - **Interpretazione:** Perdita di valore giornaliera dovuta al tempo
+            - **Uso:** Costo del "premio temporale" della copertura
+            
+            ### Rho (ρ)
+            - **Valore tipico:** -0.5 a -2.0
+            - **Interpretazione:** Impatto delle variazioni nei tassi di interesse
+            - **Uso:** Generalmente trascurabile nel breve termine
+            
+            ### Probabilità Knock-Out
+            - **Valore tipico:** 5% a 30%
+            - **Interpretazione:** Probabilità che il Turbo si estingua toccando la barriera
+            - **Uso:** Misura il rischio della strategia (più alta = più rischioso)
+            """)
     
     # ============================================================================
     # MONTE CARLO SIMULATION (Optional)
